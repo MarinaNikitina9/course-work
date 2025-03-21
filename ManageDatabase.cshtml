@@ -1,0 +1,59 @@
+﻿@{
+    ViewData["Title"] = "Управление базой данных";
+}
+
+<h2>Управление базой данных</h2>
+
+<h3>Пользователи</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Имя пользователя</th>
+            <th>Роль</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var user in ViewBag.Users)
+        {
+            <tr>
+                <td>@user.Username</td>
+                <td>@user.Role</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h3>Услуги</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Название</th>
+            <th>Описание</th>
+            <th>Цена</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var service in ViewBag.Services)
+        {
+            <tr>
+                <td>@service.Name</td>
+                <td>@service.Description</td>
+                <td>@service.Price</td>
+                <td>
+                    <form asp-action="EditService" method="post">
+                        <input type="hidden" name="id" value="@service.Id" />
+                        <input type="text" name="name" value="@service.Name" />
+                        <input type="text" name="description" value="@service.Description" />
+                        <input type="number" name="price" value="@service.Price" />
+                        <button type="submit">Сохранить</button>
+                    </form>
+                    <form asp-action="DeleteService" method="post">
+                        <input type="hidden" name="id" value="@service.Id" />
+                        <button type="submit">Удалить</button>
+                    </form>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
