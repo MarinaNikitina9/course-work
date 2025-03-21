@@ -1,0 +1,71 @@
+using System;
+
+class Program
+{
+    public enum OrderStatus
+    {
+        Created,
+        InProcessing,
+        Modified,
+        Completed,
+        Canceled
+    }
+
+    static void Main(string[] args)
+    {
+        OrderStatus orderStatus = OrderStatus.Created;
+
+        while (true)
+        {
+            switch (orderStatus)
+            {
+                case OrderStatus.Created:
+                    Console.WriteLine("Заказ создан. Принято менеджером.");
+                    orderStatus = OrderStatus.InProcessing;
+                    break;
+
+                case OrderStatus.InProcessing:
+                    Console.WriteLine("Заказ в обработке.");
+                    Console.WriteLine("Проверить требования (да/нет)?");
+                    string input = Console.ReadLine();
+
+                    if (input.ToLower() == "да")
+                    {
+                        Console.WriteLine("Заказ успешно выполнен.");
+                        orderStatus = OrderStatus.Completed;
+                    }
+                    else
+                    {
+                        Console.WriteLine("Заказ не прошел по требованиям. Нужно редактировать.");
+                        orderStatus = OrderStatus.Modified;
+                    }
+                    break;
+
+                case OrderStatus.Modified:
+                    Console.WriteLine("Редактирование заказа.");
+                    Console.WriteLine("Изменить заказ (да/нет)?");
+                    input = Console.ReadLine();
+
+                    if (input.ToLower() == "да")
+                    {
+                        Console.WriteLine("Заказ успешно изменён.");
+                        orderStatus = OrderStatus.InProcessing; // Возврат в обработку
+                    }
+                    else
+                    {
+                        Console.WriteLine("Заказ отклонён.");
+                        orderStatus = OrderStatus.Canceled;
+                    }
+                    break;
+
+                case OrderStatus.Completed:
+                    Console.WriteLine("Заказ выполнен. Завершение процесса.");
+                    return;
+
+                case OrderStatus.Canceled:
+                    Console.WriteLine("Заказ отменён.");
+                    return;
+            }
+        }
+    }
+}
