@@ -1,0 +1,133 @@
+[Authorize(Roles = "Manager")]
+public class OrderManagementController : Controller
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IEmailService _emailService;
+
+    public OrderManagementController(ApplicationDbContext context, IEmailService emailService)
+    {
+        _context = context;
+        _emailService = emailService;
+    }
+
+    // Список всех заказов
+    public async Task<IActionResult> Index()
+    {
+        var orders = await _context.Orders
+            .OrderByDescending(o => o.CreatedDate)
+            .ToListAsync();
+        
+        return View(orders);
+    }
+
+    // Детали заказа
+    public async Task<IActionResult> Details(int id)
+    {
+        var order = await _context.Orders.FindAsync(id);
+        if (order == null)
+        {
+            return NotFound();
+        }
+        
+        return View(order);
+    }
+
+    // Изменение статуса заказа
+    [HttpPost]
+    public async Task<IActionResult> UpdateStatus(int id, OrderStatus newStatus, string comment = null)
+    {
+        var order = await _context.Orders.FindAsync(id);
+        if (order == null)
+        {
+            return NotFound();
+        }
+
+        // Проверка допустимости перехода статуса
+        if (!IsStatusTransitionAllowed(order.Status, newStatus))
+        {
+            ModelState.AddModelError("", "Недопустимый переход между статусами");
+            return View("Details", order);
+        }
+
+        // Обновление статуса
+        order.Status = newStatus;
+        order.LastModifiedDate = DateTime.Now;
+        
+        // Если заказ отправлен на доработку, сохраняем комментарий
+        if (newStatus == OrderStatus.RequirementsCheck)
+        {
+            var revision = new OrderRevision
+            {
+                OrderId = id,
+                Comment = comment,
+                RevisionDate = DateTime.Now,
+                ManagerId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            };
+            
+            _context.OrderRevisions.Add(revision);
+            
+            // Отправка email клиенту
+            await _emailService.SendEmailAsync(
+                order.Email,
+                "Ваш заказ требует доработки",
+                $"Здравствуйте, {order.ClientName}!<br><br>" +
+                $"Ваш заказ #{order.Id} требует доработки.<br>" +
+                $"<strong>Комментарий менеджера:</strong> {comment}<br><br>" +
+                $"Пожалуйста, внесите необходимые изменения.");
+        }
+        
+        // Если заказ завершен, отправляем уведомление
+        if (newStatus == OrderStatus.Completed)
+        {
+            await _emailService.SendEmailAsync(
+                order.Email,
+                "Ваш заказ выполнен",
+                $"Здравствуйте, {order.ClientName}!<br><br>" +
+                $"Ваш заказ #{order.Id} успешно выполнен.<br><br>" +
+                $"Спасибо, что выбрали наше агентство!");
+        }
+
+        await _context.SaveChangesAsync();
+        
+        TempData["SuccessMessage"] = "Статус заказа успешно обновлен";
+        return RedirectToAction("Details", new { id });
+    }
+
+    // Метод для проверки допустимости перехода статуса
+    private bool IsStatusTransitionAllowed(OrderStatus current, OrderStatus next)
+    {
+        switch (current)
+        {
+            case OrderStatus.Created:
+                return next == OrderStatus.Accepted || next == OrderStatus.RequirementsCheck;
+            case OrderStatus.Accepted:
+                return next == OrderStatus.InProgress || next == OrderStatus.RequirementsCheck;
+            case OrderStatus.InProgress:
+                return next == OrderStatus.RequirementsCheck || next == OrderStatus.Completed;
+            case OrderStatus.RequirementsCheck:
+                return next == OrderStatus.Modified || next == OrderStatus.Completed;
+            case OrderStatus.Modified:
+                return next == OrderStatus.InProgress || next == OrderStatus.RequirementsCheck;
+            case OrderStatus.Completed:
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    // История изменений заказа
+    public async Task<IActionResult> History(int id)
+    {
+        var order = await _context.Orders
+            .Include(o => o.Revisions)
+            .ThenInclude(r => r.Manager)
+            .FirstOrDefaultAsync(o => o.Id == id);
+        
+        if (order == null)
+        {
+            return NotFound();
+        }
+        
+        return View(order);
+    }
+}
