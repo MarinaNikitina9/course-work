@@ -1,0 +1,32 @@
+[ApiController]
+[Route("api/orderstatus")]
+public class OrderStatusController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    public OrderStatusController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    [HttpGet("{orderId}")]
+    public async Task<IActionResult> GetOrderStatus(int orderId, [FromQuery] string email)
+    {
+        var order = await _context.Orders
+            .Where(o => o.Id == orderId && o.Email == email)
+            .Select(o => new {
+                Status = o.Status.ToString(),
+                LastModified = o.LastModifiedDate,
+                Description = o.Description,
+                FileUrl = o.FilePath
+            })
+            .FirstOrDefaultAsync();
+
+        if (order == null)
+        {
+            return NotFound("Заказ не найден или email не совпадает");
+        }
+
+        return Ok(order);
+    }
+}
