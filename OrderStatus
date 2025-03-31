@@ -1,71 +1,59 @@
-using System;
-
-class Program
+public enum OrderStatus
 {
-    public enum OrderStatus
-    {
-        Created,
-        InProcessing,
-        Modified,
-        Completed,
-        Canceled
-    }
+    Created,         // Заказ создан
+    Accepted,        // Принято менеджером
+    InProgress,      // В обработке
+    RequirementsCheck, // Проверка требований
+    Modified,        // Заказ изменён
+    Completed       // Заказ выполнен
+}
 
-    static void Main(string[] args)
+public class Order
+{
+    public int Id { get; set; }
+    public string Email { get; set; }
+    public string ClientName { get; set; }
+    public string Phone { get; set; }
+    public string Description { get; set; }
+    public string FilePath { get; set; } // Путь к прикрепленному файлу
+    public OrderStatus Status { get; set; }
+    public DateTime CreatedDate { get; set; }
+    public DateTime LastModifiedDate { get; set; }
+    
+    // Методы для изменения состояния
+    public void Accept()
     {
-        OrderStatus orderStatus = OrderStatus.Created;
-
-        while (true)
+        if (Status == OrderStatus.Created)
         {
-            switch (orderStatus)
-            {
-                case OrderStatus.Created:
-                    Console.WriteLine("Заказ создан. Принято менеджером.");
-                    orderStatus = OrderStatus.InProcessing;
-                    break;
-
-                case OrderStatus.InProcessing:
-                    Console.WriteLine("Заказ в обработке.");
-                    Console.WriteLine("Проверить требования (да/нет)?");
-                    string input = Console.ReadLine();
-
-                    if (input.ToLower() == "да")
-                    {
-                        Console.WriteLine("Заказ успешно выполнен.");
-                        orderStatus = OrderStatus.Completed;
-                    }
-                    else
-                    {
-                        Console.WriteLine("Заказ не прошел по требованиям. Нужно редактировать.");
-                        orderStatus = OrderStatus.Modified;
-                    }
-                    break;
-
-                case OrderStatus.Modified:
-                    Console.WriteLine("Редактирование заказа.");
-                    Console.WriteLine("Изменить заказ (да/нет)?");
-                    input = Console.ReadLine();
-
-                    if (input.ToLower() == "да")
-                    {
-                        Console.WriteLine("Заказ успешно изменён.");
-                        orderStatus = OrderStatus.InProcessing; // Возврат в обработку
-                    }
-                    else
-                    {
-                        Console.WriteLine("Заказ отклонён.");
-                        orderStatus = OrderStatus.Canceled;
-                    }
-                    break;
-
-                case OrderStatus.Completed:
-                    Console.WriteLine("Заказ выполнен. Завершение процесса.");
-                    return;
-
-                case OrderStatus.Canceled:
-                    Console.WriteLine("Заказ отменён.");
-                    return;
-            }
+            Status = OrderStatus.Accepted;
+            LastModifiedDate = DateTime.Now;
+        }
+    }
+    
+    public void StartProcessing()
+    {
+        if (Status == OrderStatus.Accepted || Status == OrderStatus.Modified)
+        {
+            Status = OrderStatus.InProgress;
+            LastModifiedDate = DateTime.Now;
+        }
+    }
+    
+    public void CheckRequirements(bool isApproved)
+    {
+        if (Status == OrderStatus.InProgress)
+        {
+            Status = isApproved ? OrderStatus.Completed : OrderStatus.RequirementsCheck;
+            LastModifiedDate = DateTime.Now;
+        }
+    }
+    
+    public void Modify()
+    {
+        if (Status == OrderStatus.RequirementsCheck)
+        {
+            Status = OrderStatus.Modified;
+            LastModifiedDate = DateTime.Now;
         }
     }
 }
