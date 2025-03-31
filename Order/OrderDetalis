@@ -1,0 +1,324 @@
+@model Order
+
+@{
+    ViewData["Title"] = $"Заказ #{Model.Id}";
+}
+
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8">
+            <h2>Ваш заказ #@Model.Id</h2>
+            
+            <!-- Карточка статуса -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Текущий статус</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <div class="status-badge @GetStatusClass(Model.Status)">
+                            @GetStatusText(Model.Status)
+                        </div>
+                        @if (Model.Status == OrderStatus.RequirementsCheckFailed)
+                        {
+                            <div class="alert alert-warning ml-3 mb-0 py-2">
+                                <strong>Причина:</strong> @Model.RejectionReason
+                            </div>
+                        }
+                    </div>
+                    
+                    <!-- Прогресс-бар -->
+                    <div class="progress mt-3" style="height: 10px;">
+                        @{ var progress = GetOrderProgress(Model.Status); }
+                        <div class="progress-bar @GetProgressBarClass(progress)" 
+                             role="progressbar" 
+                             style="width: @progress%" 
+                             aria-valuenow="@progress" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Детали заказа -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Детали заказа</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Дата создания:</dt>
+                        <dd class="col-sm-8">@Model.CreatedAt.ToString("dd.MM.yyyy HH:mm")</dd>
+                        
+                        <dt class="col-sm-4">ФИО:</dt>
+                        <dd class="col-sm-8">@Model.CustomerName</dd>
+                        
+                        <dt class="col-sm-4">Email:</dt>
+                        <dd class="col-sm-8">@Model.Email</dd>
+                        
+                        <dt class="col-sm-4">Телефон:</dt>
+                        <dd class="col-sm-8">@Model.Phone</dd>
+                        
+                        <dt class="col-sm-4">Описание:</dt>
+                        <dd class="col-sm-8">@Model.Description</dd>
+                        
+                        @if (!string.IsNullOrEmpty(Model.FilePath))
+                        {
+                            <dt class="col-sm-4">Прикрепленный файл:</dt>
+                            <dd class="col-sm-8">
+                                <a href="@Model.FilePath" class="btn btn-sm btn-outline-primary" download>
+                                    <i class="fas fa-download"></i> Скачать
+                                </a>
+                                (@GetFileSize(Model.FilePath))
+                            </dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+            
+            <!-- Форма доработки (если требуется) -->
+            @if (Model.Status == OrderStatus.RequirementsCheckFailed || Model.Status == OrderStatus.Created)
+            {
+                <div class="card mb-4">
+                    <div class="card-header bg-warning">
+                        <h5 class="mb-0">Требуется доработка</h5>
+                    </div>
+                    <div class="card-body">
+                        <form asp-action="UpdateOrder" method="post" enctype="multipart/form-data">
+                            <input type="hidden" asp-for="Id" />
+                            
+                            <div class="form-group">
+                                <label>Исправленное описание</label>
+                                <textarea name="updatedDescription" class="form-control" rows="5">@Model.Description</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Новый файл (если требуется)</label>
+                                <input type="file" name="updatedFile" class="form-control-file" />
+                                @if (!string.IsNullOrEmpty(Model.FilePath))
+                                {
+                                    <small class="form-text text-muted">
+                                        Текущий файл: @Path.GetFileName(Model.FilePath)
+                                    </small>
+                                }
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Отправить на повторную проверку
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            }
+        </div>
+        
+        <div class="col-md-4">
+            <!-- История изменений -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">История изменений</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group timeline">
+                        @foreach (var history in Model.History.OrderByDescending(h => h.ChangedAt))
+                        {
+                            <li class="list-group-item timeline-item">
+                                <div class="timeline-badge @GetStatusClass(history.Status)"></div>
+                                <div class="timeline-panel">
+                                    <div class="timeline-heading">
+                                        <h6 class="timeline-title">@GetStatusText(history.Status)</h6>
+                                        <p class="text-muted">
+                                            <small>@history.ChangedAt.ToString("dd.MM.yyyy HH:mm")</small>
+                                        </p>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(history.Comments))
+                                    {
+                                        <div class="timeline-body">
+                                            <p>@history.Comments</p>
+                                        </div>
+                                    }
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Контакты поддержки -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Контакты</h5>
+                </div>
+                <div class="card-body">
+                    <p>Если у вас есть вопросы по заказу:</p>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-phone mr-2"></i> +7 (123) 456-78-90</li>
+                        <li><i class="fas fa-envelope mr-2"></i> support@agency.ru</li>
+                        <li><i class="fas fa-clock mr-2"></i> Пн-Пт: 9:00 - 18:00</li>
+                    </ul>
+                    <button class="btn btn-outline-primary btn-block mt-2" data-toggle="modal" data-target="#contactModal">
+                        Написать сообщение
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для сообщений -->
+<div class="modal fade" id="contactModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Написать менеджеру</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form asp-action="SendMessageToManager" method="post">
+                <input type="hidden" name="orderId" value="@Model.Id" />
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Тема сообщения</label>
+                        <input type="text" name="subject" class="form-control" required />
+                    </div>
+                    <div class="form-group">
+                        <label>Текст сообщения</label>
+                        <textarea name="message" class="form-control" rows="5" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Закрыть</button>
+                    <button type="submit" class="btn btn-primary">Отправить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .status-badge {
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            display: inline-block;
+            min-width: 120px;
+            text-align: center;
+        }
+        .status-created { background-color: #e9ecef; color: #495057; }
+        .status-accepted { background-color: #fff3cd; color: #856404; }
+        .status-inprogress { background-color: #cce5ff; color: #004085; }
+        .status-completed { background-color: #d4edda; color: #155724; }
+        .status-rejected { background-color: #f8d7da; color: #721c24; }
+        
+        .timeline {
+            position: relative;
+            padding-left: 50px;
+        }
+        .timeline-item {
+            border: none;
+            border-left: 3px solid #dee2e6;
+            padding-bottom: 20px;
+            position: relative;
+        }
+        .timeline-item:last-child {
+            padding-bottom: 0;
+        }
+        .timeline-badge {
+            position: absolute;
+            left: -15px;
+            top: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .timeline-panel {
+            margin-left: 20px;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        // Автоматическое обновление статуса каждые 2 минуты
+        $(document).ready(function() {
+            setInterval(function() {
+                $.get('@Url.Action("GetOrderStatus", "Order", new { id = Model.Id })', function(data) {
+                    if (data.status !== '@Model.Status.ToString()') {
+                        location.reload(); // Обновляем страницу если статус изменился
+                    }
+                });
+            }, 120000);
+        });
+    </script>
+}
+
+@functions {
+    string GetStatusText(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Created => "Создан",
+            OrderStatus.Accepted => "Принят",
+            OrderStatus.InProgress => "В работе",
+            OrderStatus.RequirementsCheckFailed => "Требует доработки",
+            OrderStatus.Modified => "Изменен",
+            OrderStatus.Completed => "Выполнен",
+            _ => status.ToString()
+        };
+    }
+    
+    string GetStatusClass(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Created => "status-created",
+            OrderStatus.Accepted => "status-accepted",
+            OrderStatus.InProgress => "status-inprogress",
+            OrderStatus.RequirementsCheckFailed => "status-rejected",
+            OrderStatus.Modified => "status-accepted",
+            OrderStatus.Completed => "status-completed",
+            _ => ""
+        };
+    }
+    
+    int GetOrderProgress(OrderStatus status)
+    {
+        return status switch
+        {
+            OrderStatus.Created => 10,
+            OrderStatus.Accepted => 30,
+            OrderStatus.InProgress => 60,
+            OrderStatus.Modified => 45,
+            OrderStatus.RequirementsCheckFailed => 20,
+            OrderStatus.Completed => 100,
+            _ => 0
+        };
+    }
+    
+    string GetProgressBarClass(int progress)
+    {
+        if (progress < 30) return "bg-secondary";
+        if (progress < 70) return "bg-info";
+        return "bg-success";
+    }
+    
+    string GetFileSize(string filePath)
+    {
+        var fullPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", filePath.TrimStart('/'));
+        if (File.Exists(fullPath))
+        {
+            var size = new FileInfo(fullPath).Length;
+            if (size < 1024) return $"{size} Б";
+            if (size < 1024 * 1024) return $"{(size / 1024.0):0.0} КБ";
+            return $"{(size / (1024 * 1024.0)):0.0} МБ";
+        }
+        return "файл не найден";
+    }
+}
