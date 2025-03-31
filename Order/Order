@@ -1,0 +1,126 @@
+@model Order
+
+<div class="order-status">
+    <h3>Статус вашего заказа #@Model.Id</h3>
+    
+    <div class="status-timeline">
+        <div class="status-step @(Model.Status >= OrderStatus.Created ? "active" : "")">
+            <span class="step-number">1</span>
+            <span class="step-text">Заказ создан</span>
+            <span class="step-date">@Model.CreatedDate.ToString("g")</span>
+        </div>
+        
+        <div class="status-step @(Model.Status >= OrderStatus.Accepted ? "active" : "")">
+            <span class="step-number">2</span>
+            <span class="step-text">Принято менеджером</span>
+        </div>
+        
+        <div class="status-step @(Model.Status >= OrderStatus.InProgress ? "active" : "")">
+            <span class="step-number">3</span>
+            <span class="step-text">В обработке</span>
+        </div>
+        
+        @if (Model.Status == OrderStatus.RequirementsCheck)
+        {
+            <div class="status-step active warning">
+                <span class="step-number">!</span>
+                <span class="step-text">Требуются изменения</span>
+            </div>
+        }
+        
+        @if (Model.Status == OrderStatus.Modified)
+        {
+            <div class="status-step active">
+                <span class="step-number">4</span>
+                <span class="step-text">Заказ изменён</span>
+                <span class="step-date">@Model.LastModifiedDate.ToString("g")</span>
+            </div>
+        }
+        
+        <div class="status-step @(Model.Status == OrderStatus.Completed ? "active completed" : "")">
+            <span class="step-number">✓</span>
+            <span class="step-text">Заказ выполнен</span>
+        </div>
+    </div>
+    
+    <div class="order-details">
+        <h4>Детали заказа:</h4>
+        <p><strong>Описание:</strong> @Model.Description</p>
+        @if (!string.IsNullOrEmpty(Model.FilePath))
+        {
+            <p><strong>Прикрепленный файл:</strong> 
+                <a href="@Model.FilePath" target="_blank">Скачать</a>
+            </p>
+        }
+        <p><strong>Последнее обновление:</strong> @Model.LastModifiedDate.ToString("g")</p>
+    </div>
+</div>
+
+<style>
+    .status-timeline {
+        display: flex;
+        justify-content: space-between;
+        margin: 20px 0;
+        position: relative;
+    }
+    
+    .status-timeline::before {
+        content: '';
+        position: absolute;
+        top: 15px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: #ddd;
+        z-index: 0;
+    }
+    
+    .status-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        z-index: 1;
+        background: white;
+        padding: 0 10px;
+    }
+    
+    .step-number {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: #ddd;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 5px;
+    }
+    
+    .status-step.active .step-number {
+        background: #4CAF50;
+        color: white;
+    }
+    
+    .status-step.warning .step-number {
+        background: #FFC107;
+    }
+    
+    .status-step.completed .step-number {
+        background: #2196F3;
+    }
+    
+    .step-text {
+        font-size: 12px;
+        text-align: center;
+        color: #777;
+    }
+    
+    .status-step.active .step-text {
+        color: #333;
+        font-weight: bold;
+    }
+    
+    .step-date {
+        font-size: 10px;
+        color: #999;
+    }
+</style>
