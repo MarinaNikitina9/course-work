@@ -1,0 +1,68 @@
+public class OrderController : Controller
+{
+    private readonly ApplicationDbContext _context;
+    private readonly IWebHostEnvironment _env;
+
+    public OrderController(ApplicationDbContext context, IWebHostEnvironment env)
+    {
+        _context = context;
+        _env = env;
+    }
+
+    [HttpGet]
+    public IActionResult Create()
+    {
+        return View();
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create(Order order, IFormFile uploadedFile)
+    {
+        if (ModelState.IsValid)
+        {
+            // Обработка файла
+            if (uploadedFile != null && uploadedFile.Length > 0)
+            {
+                var uploadsFolder = Path.Combine(_env.WebRootPath, "uploads");
+                if (!Directory.Exists(uploadsFolder))
+                {
+                    Directory.CreateDirectory(uploadsFolder);
+                }
+                
+                var uniqueFileName = Guid.NewGuid().ToString() + "_" + uploadedFile.FileName;
+                var filePath = Path.Combine(uploadsFolder, uniqueFileName);
+                
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await uploadedFile.CopyToAsync(fileStream);
+                }
+                
+                order.FilePath = "/uploads/" + uniqueFileName;
+            }
+
+            // Установка начального статуса
+            order.Status = OrderStatus.Created;
+            order.CreatedDate = DateTime.Now;
+            order.LastModifiedDate = DateTime.Now;
+
+            _context.Orders.Add(order);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction("Confirmation", new { id = order.Id });
+        }
+        
+        return View(order);
+    }
+
+    [HttpGet]
+    public IActionResult Confirmation(int id)
+    {
+        var order = _context.Orders.FirstOrDefault(o => o.Id == id);
+        if (order == null)
+        {
+            return NotFound();
+        }
+        
+        return View(order);
+    }
+}
